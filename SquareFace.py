@@ -17,7 +17,7 @@ import time
 import numpy
 import sys
 from keras.models import model_from_json
-import keras.preprocessing.image as ima
+import keras.utils as ima
 
 
 area_for_scan = ""
