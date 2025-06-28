@@ -2,7 +2,7 @@ SQUAREFACEAPP setup (MacOS silicon chip)
 
 NOTE: Python3.9, Conda and created python virtualenv required!!!
 
--- Local non-packaged run
+-- Non-packaged run
 
 1. Switch to your virtual environment
 2. Use requirements.txt to install all modules via "pip install -r requirements.txt" (Installation into virtualenv is recommended)
