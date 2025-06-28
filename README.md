@@ -1,4 +1,4 @@
-SQUAREFACEAPP setup
+SQUAREFACEAPP setup (MacOS silicon chip)
 
 
 -- Local run without package
@@ -11,5 +11,5 @@ NOTE: Python3.9 and Conda required!!!
 
 NOTE: Created virtualenv and valid version of PyInstaller required!!!
 1. To package app run following command "sudo sh pack.sh /PATH/TO/YOUR/VIRTUALENV/SITEPACKAGES" 
-2. You will need to copy "assets" directory to the following path after packaging "/YOUR-ROOT-PATH/SquareFaceApp/dist/SquareFace/Contents/MacOs/SquareFace"
+2. You will need to copy "assets" directory to the following path after packaging "/YOUR-ROOT-PATH/SquareFaceApp/dist/SquareFace/Contents/MacOs"
 3. Run SquareFace.app
