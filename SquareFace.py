@@ -23,6 +23,7 @@ import keras.utils as ima
 area_for_scan = ""
 selected_file_path = ""
 path_to_app = ""
+sample_path = path_to_app + "/samples"
 path_to_app_assets = "/assets"
 model_scale_factor = 1.2
 cam_port = 0
@@ -45,6 +46,11 @@ def get_body_classifier():
     raise Exception("No body classifier found for " + area_for_scan)
 
 
+def create_samples_directory_if_not_exists():
+    if not os.path.exists(sample_path):
+        os.makedirs(sample_path)
+
+
 class WelcomeScreen(Screen):
     def __init__(self, **kwargs):
         super(WelcomeScreen, self).__init__(**kwargs)
@@ -53,7 +59,7 @@ class WelcomeScreen(Screen):
         welcome_label = Label(text="WELCOME TO SQUARE FACE", pos_hint={"x": -0.003, "y": 0.20}, color=(0.309, 0.933, 0.078, 4))
         choose_label = Label(text="CHOOSE WHAT YOU WOULD LIKE TO DETECT", pos_hint={"x": -0.004, "y": 0.123},
                        color=(0.309, 0.933, 0.078, 4))
-        note_label = Label(text="NOTE: body and license plate recognitions require more processing power", pos_hint={"x": -0.004, "y": 0.07},
+        note_label = Label(text="NOTE: body and text recognitions require more processing power", pos_hint={"x": -0.004, "y": 0.07},
                              color=(0.309, 0.933, 0.078, 4))
         choose_face_button = Button(text="FACE", background_color=(0.309, 0.933, 0.078, 4), pos_hint={"x": 0.04, "y": 0.38},
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.20, 0.15))
@@ -167,6 +173,8 @@ class ChooseInputScreen(Screen):
     def __init__(self, **kwargs):
         super(ChooseInputScreen, self).__init__(**kwargs)
         layout = FloatLayout(size=(350, 600))
+        self.current_selection_label = Label(text="", pos_hint={"x": -0.003, "y": 0.40},
+                                  color=(0.309, 0.933, 0.078, 4))
         choose_type_label = Label(text="CHOOSE TYPE OF FILE", pos_hint={"x": -0.003, "y": 0.27}, color=(0.309, 0.933, 0.078, 4))
         note_label = Label(text="NOTE: make sure it is not too bright and not too dark for the recognition to work presicely",
                            pos_hint={"x": -0.003, "y": 0.2}, color=(0.309, 0.933, 0.078, 4))
@@ -188,6 +196,7 @@ class ChooseInputScreen(Screen):
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.2, 0.1))
         go_back_button.bind(on_press=self.switch_to_welcome_screen)
 
+        layout.add_widget(self.current_selection_label)
         layout.add_widget(choose_type_label)
         layout.add_widget(note_label)
         layout.add_widget(choose_video_button)
@@ -196,6 +205,9 @@ class ChooseInputScreen(Screen):
         layout.add_widget(choose_image_from_camera_button)
         layout.add_widget(go_back_button)
         self.add_widget(layout)
+
+    def on_enter(self, *args):
+        self.current_selection_label.text = "CURRENT SELECTION: " + area_for_scan.upper()
 
     def switch_to_welcome_screen(self, *args):
         self.manager.transition = SlideTransition(direction="right")
@@ -224,8 +236,10 @@ class ChooseImageScreen(Screen):
         layout = FloatLayout(size=(350, 600))
         self.popup_layout = FloatLayout(size=(175, 300))
 
+        self.current_selection_label = Label(text="", pos_hint={"x": -0.003, "y": 0.40},
+                                             color=(0.309, 0.933, 0.078, 4))
         title_label = Label(text="IMAGE",
-                       pos_hint={"x": 0.194, "y": 0.83},
+                       pos_hint={"x": 0.194, "y": 0.78},
                        color=(0.309, 0.933, 0.078, 4), size_hint=(0.62, .07))
         path_to_image_label = Label(text="WRITE FULL PATH TO AN IMAGE (i.e. /Users/joe/img.png) OR PRESS FILE ICON TO CHOOSE FILE",
                        pos_hint={"x": 0.01, "y": 0.24},
@@ -269,6 +283,7 @@ class ChooseImageScreen(Screen):
                                 color=(0.141, 0.054, 0.078, 4), size_hint=(0.2, 0.1))
         go_back_button.bind(on_press=self.switch_to_choose_screen)
 
+        layout.add_widget(self.current_selection_label)
         layout.add_widget(self.path_to_image_input)
         layout.add_widget(path_to_image_label)
         layout.add_widget(title_label)
@@ -288,6 +303,7 @@ class ChooseImageScreen(Screen):
         self.loaded_model = ""
 
     def on_enter(self, *args):
+        self.current_selection_label.text = "CURRENT SELECTION: " + area_for_scan.upper()
         self.loaded_model = model_from_json(open(path_to_app_assets + "/neuralnet.json", "r").read())
         self.loaded_model.load_weights(path_to_app_assets + "/weights.h5")
 
@@ -315,9 +331,9 @@ class ChooseImageScreen(Screen):
             image = cv2.imread(path_to_image)
             gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             if area_for_scan != "emotion":
-                self._scan_and_save_body_part(path_to_image, image, gray_image)
+                self._scan_and_save_body_part(image, gray_image)
                 return
-            self._scan_and_save_emotion(path_to_image, image, gray_image)
+            self._scan_and_save_emotion(image, gray_image)
         except Exception as e:
             print("Error: " + str(e))
             self.manager.transition = SlideTransition(direction="down")
@@ -329,9 +345,9 @@ class ChooseImageScreen(Screen):
             image = cv2.imread(path_to_image)
             gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             if area_for_scan != "emotion":
-                self._scan_and_save_body_part_cropped(image, gray_image, path_to_image)
+                self._scan_and_save_body_part_cropped(image, gray_image)
                 return
-            self._scan_and_save_emotion_cropped(image, gray_image, path_to_image)
+            self._scan_and_save_emotion_cropped(image, gray_image)
         except Exception as e:
             print("Error: " + str(e))
             self.manager.transition = SlideTransition(direction="down")
@@ -365,7 +381,7 @@ class ChooseImageScreen(Screen):
             self.manager.transition = SlideTransition(direction="down")
             self.manager.current = "ErrorImageSelectionScreen"
 
-    def _scan_and_save_body_part(self, path_to_image, image, gray_image):
+    def _scan_and_save_body_part(self, image, gray_image):
         body_classifier = get_body_classifier()
         detected_areas = body_classifier.detectMultiScale(gray_image, scaleFactor=model_scale_factor, minNeighbors=5)
         if detected_areas == ():
@@ -374,16 +390,16 @@ class ChooseImageScreen(Screen):
         else:
             for (x, y, z, w) in detected_areas:
                 cv2.rectangle(image, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-            cv2.imwrite(os.path.dirname(path_to_image) + "/ProcessedImage.png", image)
+            cv2.imwrite(path_to_app + "/ProcessedImage.png", image)
             self.manager.transition = SlideTransition(direction="left")
             self.manager.current = "ProcessedScreen"
 
-    def _scan_and_save_emotion(self, path_to_image, image, gray_image):
+    def _scan_and_save_emotion(self, image, gray_image):
         face_classifier = cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_frontalface_default.xml")
         detected_areas = face_classifier.detectMultiScale(image, scaleFactor=model_scale_factor, minNeighbors=5)
         for (x, y, z, w) in detected_areas:
             cv2.rectangle(image, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-            cut_gray_image = gray_image[y: y + z, x: x + w]
+            cut_gray_image = gray_image[y: y + w, x: x + z]
             resized_cut_gray_image = cv2.resize(cut_gray_image, (48, 48))
             gray_image_array = ima.img_to_array(resized_cut_gray_image)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -398,13 +414,15 @@ class ChooseImageScreen(Screen):
             cv2.putText(image, result, (int(x + 5), int(y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                         (0, 0, 255), 1)
 
-        cv2.imwrite(os.path.dirname(path_to_image) + "/ProcessedImage.png", image)
+        cv2.imwrite(path_to_app + "/ProcessedImage.png", image)
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
 
-    def _scan_and_save_body_part_cropped(self, image, gray_image, path_to_image):
+    def _scan_and_save_body_part_cropped(self, image, gray_image):
         body_classifier = get_body_classifier()
         detection = body_classifier.detectMultiScale(gray_image, scaleFactor=model_scale_factor, minNeighbors=5)
+
+        create_samples_directory_if_not_exists()
         picker = 0
         if detection == ():
             self.manager.transition = SlideTransition(direction="down")
@@ -412,13 +430,13 @@ class ChooseImageScreen(Screen):
         else:
             for (x, y, z, w) in detection:
                 picker += 1
-                image_cropped = image[y: y + z, x: x + w]
+                image_cropped = image[y: y + w, x: x + z]
                 image_result = cv2.resize(image_cropped, (520, 400))
-                cv2.imwrite(os.path.dirname(path_to_image) + "/ProcessedImage" + str(picker) + ".png", image_result)
+                cv2.imwrite(sample_path + "/sample" + str(picker) + ".png", image_result)
             self.manager.transition = SlideTransition(direction="left")
             self.manager.current = "ProcessedScreen"
 
-    def _scan_and_save_emotion_cropped(self, image, gray_image, path_to_image):
+    def _scan_and_save_emotion_cropped(self, image, gray_image):
         face_classifier = cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_frontalface_default.xml")
         detection = face_classifier.detectMultiScale(image, scaleFactor=model_scale_factor, minNeighbors=5)
 
@@ -427,12 +445,16 @@ class ChooseImageScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageScreen"
             return
 
+        sample_path = path_to_app + "/samples"
+        if not os.path.exists(sample_path):
+            os.makedirs(sample_path)
+
         image_count = 0
         for (x, y, z, w) in detection:
             image_count += 1
-            image_cropped = image[y: y + z, x: x + w]
+            image_cropped = image[y: y + w, x: x + z]
             image_cropped_final = cv2.resize(image_cropped, (520, 400))
-            cut_gray = gray_image[y: y + z, x: x + w]
+            cut_gray = gray_image[y: y + w, x: x + z]
             resized_cut_gray = cv2.resize(cut_gray, (48, 48))
             image_array_gray = ima.img_to_array(resized_cut_gray)
             image_array_gray_expanded = numpy.expand_dims(image_array_gray, axis=0)
@@ -444,7 +466,7 @@ class ChooseImageScreen(Screen):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1.4,
                         (0, 0, 255), 2)
-            cv2.imwrite(os.path.dirname(path_to_image) + "/ProcessedImage" + str(image_count) + ".png",
+            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png",
                         image_cropped_final)
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -497,7 +519,7 @@ class ChooseImageScreen(Screen):
                             (20, 226, 20), 1)
             detection_counter += 1
             cv2.rectangle(image, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-            cut_gray_image = gray_image[y: y + z, x: x + w]
+            cut_gray_image = gray_image[y: y + w, x: x + z]
             resized_cut_gray_image = cv2.resize(cut_gray_image, (48, 48))
             gray_image_array = ima.img_to_array(resized_cut_gray_image)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -532,7 +554,7 @@ class ChooseImageScreen(Screen):
             return
 
         for index, (x, y, z, w) in enumerate(detection):
-            image_cropped = image[y: y + z, x: x + w]
+            image_cropped = image[y: y + w, x: x + z]
             image_cropped_resized = cv2.resize(image_cropped, (520, 400))
             if index == len(detection) - 1:
                 cv2.putText(image_cropped_resized, "PRESS SPACE TWICE TO CLOSE THE IMAGE", (10, 11),
@@ -565,9 +587,9 @@ class ChooseImageScreen(Screen):
             return
 
         for index, (x, y, z, w) in enumerate(detection):
-            image_cropped = image[y: y + z, x: x + w]
+            image_cropped = image[y: y + w, x: x + z]
             image_cropped_resized = cv2.resize(image_cropped, (520, 400))
-            cut_gray_image = gray_image[y: y + z, x: x + w]
+            cut_gray_image = gray_image[y: y + w, x: x + z]
             resized_cut_gray_image = cv2.resize(cut_gray_image, (48, 48))
             gray_image_array = ima.img_to_array(resized_cut_gray_image)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -605,6 +627,8 @@ class ChooseImageCamInputScreen(Screen):
     def __init__(self, **kwargs):
         super(ChooseImageCamInputScreen, self).__init__(**kwargs)
         layout = FloatLayout(size=(350, 600))
+        self.current_selection_label = Label(text="", pos_hint={"x": -0.003, "y": 0.40},
+                                             color=(0.309, 0.933, 0.078, 4))
         title_label = Label(text="IMAGE FROM YOUR CAMERA", pos_hint={"x": 0.01, "y": 0.25},
                        color=(0.309, 0.933, 0.078, 4))
         take_and_save_button = Button(text="TAKE AND SAVE FULL IMAGE >", background_color=(0.309, 0.933, 0.078, 4),
@@ -627,6 +651,7 @@ class ChooseImageCamInputScreen(Screen):
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.2, 0.1))
         go_back_button.bind(on_press=self.switch_to_choose_input_screen)
 
+        layout.add_widget(self.current_selection_label)
         layout.add_widget(title_label)
         layout.add_widget(take_and_save_button)
         layout.add_widget(take_and_show_button)
@@ -637,6 +662,7 @@ class ChooseImageCamInputScreen(Screen):
         self.loaded_model = ""
 
     def on_enter(self, *args):
+        self.current_selection_label.text = "CURRENT SELECTION: " + area_for_scan.upper()
         self.loaded_model = model_from_json(open(path_to_app_assets + "/neuralnet.json", "r").read())
         self.loaded_model.load_weights(path_to_app_assets + "/weights.h5")
 
@@ -725,7 +751,7 @@ class ChooseImageCamInputScreen(Screen):
 
         for (x, y, z, w) in detection:
             cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-            cut_gray_image = gray_image[y: y + z, x: x + w]
+            cut_gray_image = gray_image[y: y + w, x: x + z]
             resized_cut_gray_image = cv2.resize(cut_gray_image, (48, 48))
             gray_image_array = ima.img_to_array(resized_cut_gray_image)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -754,11 +780,12 @@ class ChooseImageCamInputScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageCamScreen"
             return
 
+        create_samples_directory_if_not_exists()
         for (x, y, z, w) in detection:
             image_count += 1
-            image_cropped = frame[y: y + z, x: x + w]
+            image_cropped = frame[y: y + w, x: x + z]
             image_result = cv2.resize(image_cropped, (520, 400))
-            cv2.imwrite(path_to_app + "/ProcessedImage" + str(image_count) + ".png", image_result)
+            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png", image_result)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -772,12 +799,16 @@ class ChooseImageCamInputScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageCamScreen"
             return
 
+        sample_path = path_to_app + "/samples"
+        if not os.path.exists(sample_path):
+            os.makedirs(sample_path)
+
         image_count = 0
         for (x, y, z, w) in detection:
             image_count += 1
-            frame_cropped = frame[y: y + z, x: x + w]
+            frame_cropped = frame[y: y + w, x: x + z]
             frame_cropped_final = cv2.resize(frame_cropped, (520, 400))
-            gray_image_cropped = gray_image[y: y + z, x: x + w]
+            gray_image_cropped = gray_image[y: y + w, x: x + z]
             resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
             image_array_gray = ima.img_to_array(resized_gray_image_cropped)
             image_array_gray_expanded = numpy.expand_dims(image_array_gray, axis=0)
@@ -789,7 +820,7 @@ class ChooseImageCamInputScreen(Screen):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1.4,
                         (0, 0, 255), 2)
-            cv2.imwrite(path_to_app + "/ProcessedImage" + str(image_count) + ".png",
+            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png",
                         frame_cropped_final)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
@@ -842,7 +873,7 @@ class ChooseImageCamInputScreen(Screen):
                             (20, 226, 20), 1)
             cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
             image_counter += 1
-            gray_image_cropped = gray_image[y: y + z, x: x + w]
+            gray_image_cropped = gray_image[y: y + w, x: x + z]
             resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
             gray_image_array = ima.img_to_array(resized_gray_image_cropped)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -878,7 +909,7 @@ class ChooseImageCamInputScreen(Screen):
             return
 
         for index, (x, y, z, w) in enumerate(detection):
-            image_fin = frame[y: y + z, x: x + w]
+            image_fin = frame[y: y + w, x: x + z]
             image_fin = cv2.resize(image_fin, (520, 400))
             if index == len(detection) - 1:
                 cv2.putText(image_fin, "PRESS SPACE TWICE TO CLOSE THE IMAGE", (10, 11),
@@ -911,9 +942,9 @@ class ChooseImageCamInputScreen(Screen):
             return
 
         for index, (x, y, z, w) in enumerate(detection):
-            image_cropped = frame[y: y + z, x: x + w]
+            image_cropped = frame[y: y + w, x: x + z]
             image_result = cv2.resize(image_cropped, (520, 400))
-            gray_image_cropped = gray_image[y: y + z, x: x + w]
+            gray_image_cropped = gray_image[y: y + w, x: x + z]
             resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
             gray_image_array = ima.img_to_array(resized_gray_image_cropped)
             gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -961,8 +992,10 @@ class ChooseVideoScreen(Screen):
         self.layout = FloatLayout(size=(350, 600))
         self.popup_layout = FloatLayout(size=(175, 300))
 
+        self.current_selection_label = Label(text="", pos_hint={"x": -0.003, "y": 0.40},
+                                             color=(0.309, 0.933, 0.078, 4))
         title_label = Label(text="VIDEO",
-                       pos_hint={"x": 0.194, "y": 0.83},
+                       pos_hint={"x": 0.194, "y": 0.78},
                        color=(0.309, 0.933, 0.078, 4), size_hint=(0.62, .07))
         write_path_label = Label(text="WRITE FULL PATH TO A VIDEO (i.e. /Users/joe/video.mp4) OR PRESS FILE ICON TO CHOOSE FILE",
                        pos_hint={"x": 0.01, "y": 0.24},
@@ -1003,6 +1036,7 @@ class ChooseVideoScreen(Screen):
                               color=(0.141, 0.054, 0.078, 4), size_hint=(0.15, 0.05))
         close_file_finder_cancel_button.bind(on_press=self.close_file_finder)
         close_file_finder_ok_button.bind(on_press=self.choose_file)
+        self.layout.add_widget(self.current_selection_label)
         self.layout.add_widget(title_label)
         self.layout.add_widget(self.file_path_input)
         self.layout.add_widget(write_path_label)
@@ -1022,6 +1056,7 @@ class ChooseVideoScreen(Screen):
         self.loaded_model = ""
 
     def on_enter(self, *args):
+        self.current_selection_label.text = "CURRENT SELECTION: " + area_for_scan.upper()
         self.loaded_model = model_from_json(open(path_to_app_assets + "/neuralnet.json", "r").read())
         self.loaded_model.load_weights(path_to_app_assets + "/weights.h5")
 
@@ -1113,7 +1148,7 @@ class ChooseVideoScreen(Screen):
 
             for (x, y, z, w) in detection:
                 cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-                gray_image_cropped = gray_image[y: y + z, x: x + w]
+                gray_image_cropped = gray_image[y: y + w, x: x + z]
                 resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
                 gray_image_array = ima.img_to_array(resized_gray_image_cropped)
                 gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -1168,6 +1203,8 @@ class ChooseVideoCamInputScreen(Screen):
         super(ChooseVideoCamInputScreen, self).__init__(**kwargs)
         layout = FloatLayout(size=(350, 600))
 
+        self.current_selection_label = Label(text="", pos_hint={"x": -0.003, "y": 0.40},
+                                             color=(0.309, 0.933, 0.078, 4))
         title_label = Label(text="VIDEO FROM YOUR CAMERA", pos_hint={"x": 0.01, "y": 0.25},
                        color=(0.309, 0.933, 0.078, 4))
         record_and_save_button = Button(text="RECORD AND SAVE FULL VIDEO >", background_color=(0.309, 0.933, 0.078, 4),
@@ -1190,6 +1227,7 @@ class ChooseVideoCamInputScreen(Screen):
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.2, 0.1))
         go_back_button.bind(on_press=self.switch_to_choose_input_screen)
 
+        layout.add_widget(self.current_selection_label)
         layout.add_widget(title_label)
         layout.add_widget(record_and_save_button)
         layout.add_widget(go_back_button)
@@ -1201,6 +1239,7 @@ class ChooseVideoCamInputScreen(Screen):
         self.loaded_model = ""
 
     def on_enter(self, *args):
+        self.current_selection_label.text = "CURRENT SELECTION: " + area_for_scan.upper()
         self.loaded_model = model_from_json(open(path_to_app_assets + "/neuralnet.json", "r").read())
         self.loaded_model.load_weights(path_to_app_assets + "/weights.h5")
 
@@ -1309,7 +1348,7 @@ class ChooseVideoCamInputScreen(Screen):
             detection = face_classifier.detectMultiScale(frame, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
                 cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-                gray_image_cropped = gray_image[y: y + z, x: x + w]
+                gray_image_cropped = gray_image[y: y + w, x: x + z]
                 resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
                 gray_image_array = ima.img_to_array(resized_gray_image_cropped)
                 gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -1341,6 +1380,7 @@ class ChooseVideoCamInputScreen(Screen):
 
     def _scan_and_save_body_part_cropped_result(self, capture_to_write, video):
         retry = True
+        frame_count = 0
         while retry:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (520, 400))
@@ -1348,6 +1388,7 @@ class ChooseVideoCamInputScreen(Screen):
             body_classifier = get_body_classifier()
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
 
+            create_samples_directory_if_not_exists()
             if detection == ():
                 capture_to_write.write(frame)
                 cv2.putText(frame, "PRESS SPACE ONCE OR TWICE TO STOP RECORDING", (10, 12),
@@ -1362,15 +1403,17 @@ class ChooseVideoCamInputScreen(Screen):
                 cv2.namedWindow("RECORDING")
             else:
                 for (x, y, z, w) in detection:
-                    cut = frame[y:y + z, x:x + w]
+                    cut = frame[y:y + w, x:x + z]
                     cut_image = cv2.resize(cut, (520, 400))
                     capture_to_write.write(cut_image)
+                    cv2.imwrite(sample_path + "/sample" + str(frame_count) + ".png", cut_image)
                     cv2.putText(cut_image, "PRESS SPACE ONCE OR TWICE TO STOP RECORDING", (10, 12),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.35,
                                 (20, 226, 20), 1)
                     cv2.imshow("RECORDING", cut_image)
                     cv2.namedWindow("RECORDING")
+                    frame_count += 1
 
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
@@ -1402,9 +1445,9 @@ class ChooseVideoCamInputScreen(Screen):
                             (20, 226, 20), 1)
             else:
                 for (x, y, z, w) in detection:
-                    image_cropped = frame[y: y + z, x: x + w]
+                    image_cropped = frame[y: y + w, x: x + z]
                     image_result = cv2.resize(image_cropped, (520, 400))
-                    gray_frame_cropped = gray_frame[y: y + z, x: x + w]
+                    gray_frame_cropped = gray_frame[y: y + w, x: x + z]
                     resized_gray_frame_cropped = cv2.resize(gray_frame_cropped, (48, 48))
                     gray_frame_array = ima.img_to_array(resized_gray_frame_cropped)
                     gray_frame_array_expanded = numpy.expand_dims(gray_frame_array, axis=0)
@@ -1463,7 +1506,7 @@ class ChooseVideoCamInputScreen(Screen):
 
                 for (x, y, z, w) in detection:
                     cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-                    gray_frame_cropped = gray_frame[y: y + z, x: x + w]
+                    gray_frame_cropped = gray_frame[y: y + w, x: x + z]
                     resized_gray_frame_cropped = cv2.resize(gray_frame_cropped, (48, 48))
                     gray_frame_array = ima.img_to_array(resized_gray_frame_cropped)
                     gray_frame_array_expanded = numpy.expand_dims(gray_frame_array, axis=0)
@@ -1509,9 +1552,9 @@ class ChooseVideoCamInputScreen(Screen):
                             (20, 226, 20), 1)
             else:
                 for (x, y, z, w) in detection:
-                    frame_cropped = frame[y: y + z, x: x + w]
+                    frame_cropped = frame[y: y + w, x: x + z]
                     frame_result = cv2.resize(frame_cropped, (520, 400))
-                    gray_frame_cropped = gray_frame[y: y + z, x: x + w]
+                    gray_frame_cropped = gray_frame[y: y + w, x: x + z]
                     resized_gray_frame_cropped = cv2.resize(gray_frame_cropped, (48, 48))
                     gray_frame_array = ima.img_to_array(resized_gray_frame_cropped)
                     gray_frame_array_expanded = numpy.expand_dims(gray_frame_array, axis=0)
@@ -1590,7 +1633,7 @@ class ChooseVideoCamInputScreen(Screen):
                             (20, 226, 20), 1)
             else:
                 for (x, y, z, w) in detection:
-                    frame_cropped = frame[y:y + z, x:x + w]
+                    frame_cropped = frame[y:y + w, x:x + z]
                     resized_frame_cropped = cv2.resize(frame_cropped, (520, 400))
                     cv2.putText(resized_frame_cropped, "PRESS SPACE ONCE OR TWICE TO STOP SHOWING VIDEO", (10, 15),
                                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -1809,7 +1852,7 @@ class LoadingAndSavingScannedVideoScreen(Screen):
             detection = face_recognition_classifier.detectMultiScale(frame, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
                 cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-                cut_gray = gray[y: y + z, x: x + w]
+                cut_gray = gray[y: y + w, x: x + z]
                 resized_cut_gray = cv2.resize(cut_gray, (48, 48))
                 gray_image_array = ima.img_to_array(resized_cut_gray)
                 gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -1922,9 +1965,9 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
                 continue
 
             for (x, y, z, w) in detection:
-                image_cropped = frame[y: y + z, x: x + w]
+                image_cropped = frame[y: y + w, x: x + z]
                 image_final = cv2.resize(image_cropped, (520, 400))
-                gray_image_cropped = gray_frame[y: y + z, x: x + w]
+                gray_image_cropped = gray_frame[y: y + w, x: x + z]
                 resized_gray_image_cropped = cv2.resize(gray_image_cropped, (48, 48))
                 gray_image_array = ima.img_to_array(resized_gray_image_cropped)
                 gray_image_array_expanded = numpy.expand_dims(gray_image_array, axis=0)
@@ -1940,16 +1983,21 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
 
     @staticmethod
     def _scan_and_write_result_for_body_parts(capture_to_write, video):
+        frame_count = 0
         while True:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (520, 400))
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             body_classifier = get_body_classifier()
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
+
+            create_samples_directory_if_not_exists()
             for (x, y, z, w) in detection:
-                final_frame = frame[y:y + z, x:x + w]
+                final_frame = frame[y:y + w, x:x + z]
                 final_cut_frame = cv2.resize(final_frame, (520, 400))
                 capture_to_write.write(final_cut_frame)
+                cv2.imwrite(sample_path + "/sample" + str(frame_count) + ".png", final_cut_frame)
+                frame_count += 1
 
 
 class LoadingAndShowingResultVideoCroppedScreen(Screen):
@@ -2041,9 +2089,9 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
                 path_to_app_assets + "/haarcascade_frontalface_default.xml")
             detection = face_classifier.detectMultiScale(frame, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
-                image_cropped = frame[y: y + z, x: x + w]
+                image_cropped = frame[y: y + w, x: x + z]
                 image_result = cv2.resize(image_cropped, (520, 400))
-                cut_gray = gray[y: y + z, x: x + w]
+                cut_gray = gray[y: y + w, x: x + z]
                 resized_cut_gray = cv2.resize(cut_gray, (48, 48))
                 image_gray_array = ima.img_to_array(resized_cut_gray)
                 image_gray_array_expended = numpy.expand_dims(image_gray_array, axis=0)
@@ -2070,7 +2118,7 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
             body_classifier = get_body_classifier()
             detection = body_classifier.detectMultiScale(gray, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
-                final_frame = frame[y:y + z, x:x + w]
+                final_frame = frame[y:y + w, x:x + z]
                 final_cut_frame = cv2.resize(final_frame, (520, 400))
                 cv2.putText(final_cut_frame, "PRESS SPACE ONCE OR TWICE TO CLOSE THE VIDEO", (10, 11),
                             cv2.FONT_HERSHEY_SIMPLEX,
@@ -2082,12 +2130,14 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
 def set_file_paths():
     global path_to_app
     global path_to_app_assets
+    global sample_path
     if getattr(sys, 'frozen', False):
         path_to_app = str(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(sys.executable)))))
         path_to_app_assets = str(os.path.dirname(sys.executable)) + "/assets"
     elif __file__:
         path_to_app = str(os.path.dirname(__file__))
         path_to_app_assets = str(os.path.dirname(__file__)) + "/assets"
+    sample_path = path_to_app + "/samples"
 
 
 def set_config():
