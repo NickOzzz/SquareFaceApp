@@ -40,6 +40,8 @@ def get_body_classifier():
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_eye.xml")
     if area_for_scan == "smile":
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_smile.xml")
+    if area_for_scan == "license":
+        return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_license_plate_number.xml")
     raise Exception("No body classifier found for " + area_for_scan)
 
 
@@ -51,7 +53,7 @@ class WelcomeScreen(Screen):
         welcome_label = Label(text="WELCOME TO SQUARE FACE", pos_hint={"x": -0.003, "y": 0.20}, color=(0.309, 0.933, 0.078, 4))
         choose_label = Label(text="CHOOSE WHAT YOU WOULD LIKE TO DETECT", pos_hint={"x": -0.004, "y": 0.123},
                        color=(0.309, 0.933, 0.078, 4))
-        note_label = Label(text="NOTE: body recognition requires more processing power", pos_hint={"x": -0.004, "y": 0.07},
+        note_label = Label(text="NOTE: body and license plate recognitions require more processing power", pos_hint={"x": -0.004, "y": 0.07},
                              color=(0.309, 0.933, 0.078, 4))
         choose_face_button = Button(text="FACE", background_color=(0.309, 0.933, 0.078, 4), pos_hint={"x": 0.04, "y": 0.38},
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.20, 0.15))
@@ -65,9 +67,13 @@ class WelcomeScreen(Screen):
         choose_smile_button = Button(text="SMILE", background_color=(0.309, 0.933, 0.078, 4), pos_hint={"x": 0.76, "y": 0.38},
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.20, 0.15))
         choose_smile_button.bind(on_press=self.switch_to_smile_screen)
+        choose_license_button = Button(text="LICENSE PLATE", background_color=(0.309, 0.933, 0.078, 4),
+                                       pos_hint={"x": 0.05, "y": 0.22},
+                                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.28, 0.10), font_size="13sp")
+        choose_license_button.bind(on_press=self.switch_to_license_screen)
         choose_emotion_button = Button(text="EMOTION", background_color=(0.309, 0.933, 0.078, 4),
                       pos_hint={"x": 0.05, "y": 0.10},
-                      color=(0.141, 0.054, 0.078, 4), size_hint=(0.28, 0.20), font_size="13sp")
+                      color=(0.141, 0.054, 0.078, 4), size_hint=(0.28, 0.10), font_size="13sp")
         choose_emotion_button.bind(on_press=self.switch_to_emotion_screen)
         camera_port_label = Label(text="SPECIFY YOUR CAMERA PORT IF NEEDED (Default is 0)",
                        pos_hint={"x": 0.14, "y": -0.25},
@@ -87,6 +93,7 @@ class WelcomeScreen(Screen):
         layout.add_widget(choose_body_button)
         layout.add_widget(choose_eye_button)
         layout.add_widget(choose_smile_button)
+        layout.add_widget(choose_license_button)
         layout.add_widget(choose_emotion_button)
         layout.add_widget(logo_image)
         layout.add_widget(self.cam_port_input)
@@ -125,6 +132,15 @@ class WelcomeScreen(Screen):
         global area_for_scan
         model_scale_factor = 1.2
         area_for_scan = "smile"
+        self._apply_cam_port()
+        self.manager.transition = SlideTransition(direction="left")
+        self.manager.current = "ChooseInputScreen"
+
+    def switch_to_license_screen(self, *args):
+        global model_scale_factor
+        global area_for_scan
+        model_scale_factor = 1.06
+        area_for_scan = "license"
         self._apply_cam_port()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ChooseInputScreen"
@@ -1068,8 +1084,9 @@ class ChooseVideoScreen(Screen):
                     video.release()
                     cv2.destroyAllWindows()
                     return
-            self.manager.transition = SlideTransition(direction="down")
-            self.manager.current = "ErrorVideoSelectionScreen"
+            else:
+                self.manager.transition = SlideTransition(direction="down")
+                self.manager.current = "ErrorVideoSelectionScreen"
         except Exception as e:
             print("Error: " + str(e))
             self.manager.transition = SlideTransition(direction="down")
@@ -1882,9 +1899,10 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
                     self.manager.transition = SlideTransition(direction="left")
                     self.manager.current = "ProcessedScreen"
                     return
-            print("Error: selected file's extension " + selected_file_extension + " is not valid")
-            self.manager.transition = SlideTransition(direction="down")
-            self.manager.current = "ErrorVideoSelectionScreen"
+            else:
+                print("Error: selected file's extension " + selected_file_extension + " is not valid")
+                self.manager.transition = SlideTransition(direction="down")
+                self.manager.current = "ErrorVideoSelectionScreen"
         except Exception as e:
             print("Error: " + str(e))
             self.manager.transition = SlideTransition(direction="down")
@@ -1980,10 +1998,11 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
                     self.manager.transition = SlideTransition(direction="left")
                     self.manager.current = "ChooseVideoScreen"
                     return
-            print("Error: selected file's extension " + selected_file_extension + " is not valid")
-            self.show_final_result = False
-            self.manager.transition = SlideTransition(direction="down")
-            self.manager.current = "ErrorVideoSelectionScreen"
+            else:
+                print("Error: selected file's extension " + selected_file_extension + " is not valid")
+                self.show_final_result = False
+                self.manager.transition = SlideTransition(direction="down")
+                self.manager.current = "ErrorVideoSelectionScreen"
         except Exception as e:
             print("Error: " + str(e))
             self.show_final_result = False
