@@ -40,7 +40,7 @@ def get_body_classifier():
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_eye.xml")
     if area_for_scan == "smile":
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_smile.xml")
-    if area_for_scan == "license":
+    if area_for_scan == "text":
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_license_plate_number.xml")
     raise Exception("No body classifier found for " + area_for_scan)
 
@@ -67,7 +67,7 @@ class WelcomeScreen(Screen):
         choose_smile_button = Button(text="SMILE", background_color=(0.309, 0.933, 0.078, 4), pos_hint={"x": 0.76, "y": 0.38},
                       color=(0.141, 0.054, 0.078, 4), size_hint=(0.20, 0.15))
         choose_smile_button.bind(on_press=self.switch_to_smile_screen)
-        choose_license_button = Button(text="LICENSE PLATE", background_color=(0.309, 0.933, 0.078, 4),
+        choose_license_button = Button(text="TEXT", background_color=(0.309, 0.933, 0.078, 4),
                                        pos_hint={"x": 0.05, "y": 0.22},
                                        color=(0.141, 0.054, 0.078, 4), size_hint=(0.28, 0.10), font_size="13sp")
         choose_license_button.bind(on_press=self.switch_to_license_screen)
@@ -140,7 +140,7 @@ class WelcomeScreen(Screen):
         global model_scale_factor
         global area_for_scan
         model_scale_factor = 1.06
-        area_for_scan = "license"
+        area_for_scan = "text"
         self._apply_cam_port()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ChooseInputScreen"
