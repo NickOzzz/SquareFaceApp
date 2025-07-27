@@ -24,6 +24,7 @@ area_for_scan = ""
 selected_file_path = ""
 path_to_app = ""
 sample_path = path_to_app + "/samples"
+detections_path = path_to_app + "/detections"
 path_to_app_assets = "/assets"
 model_scale_factor = 1.2
 cam_port = 0
@@ -49,6 +50,11 @@ def get_body_classifier():
 def create_samples_directory_if_not_exists():
     if not os.path.exists(sample_path):
         os.makedirs(sample_path)
+
+
+def create_detections_directory_if_not_exists():
+    if not os.path.exists(detections_path):
+        os.makedirs(detections_path)
 
 
 class WelcomeScreen(Screen):
@@ -145,6 +151,7 @@ class WelcomeScreen(Screen):
     def switch_to_license_screen(self, *args):
         global model_scale_factor
         global area_for_scan
+        # lower scale factor for recognition to be more precise
         model_scale_factor = 1.06
         area_for_scan = "text"
         self._apply_cam_port()
@@ -390,7 +397,7 @@ class ChooseImageScreen(Screen):
         else:
             for (x, y, z, w) in detected_areas:
                 cv2.rectangle(image, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-            cv2.imwrite(path_to_app + "/ProcessedImage.png", image)
+            cv2.imwrite(path_to_app + "/detection.png", image)
             self.manager.transition = SlideTransition(direction="left")
             self.manager.current = "ProcessedScreen"
 
@@ -414,7 +421,7 @@ class ChooseImageScreen(Screen):
             cv2.putText(image, result, (int(x + 5), int(y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                         (0, 0, 255), 1)
 
-        cv2.imwrite(path_to_app + "/ProcessedImage.png", image)
+        cv2.imwrite(path_to_app + "/detection.png", image)
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
 
@@ -735,7 +742,7 @@ class ChooseImageCamInputScreen(Screen):
 
         for (x, y, z, w) in detection:
             cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
-        cv2.imwrite(path_to_app + "/ProcessedImage.png", frame)
+        cv2.imwrite(path_to_app + "/detection.png", frame)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -765,7 +772,7 @@ class ChooseImageCamInputScreen(Screen):
             else:
                 cv2.putText(frame, result, (int(x + 5), int(y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                             (0, 0, 255), 1)
-        cv2.imwrite(path_to_app + "/ProcessedImage.png", frame)
+        cv2.imwrite(path_to_app + "/detection.png", frame)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -1313,7 +1320,9 @@ class ChooseVideoCamInputScreen(Screen):
             self.manager.current = "ErrorVideoCamScreen"
 
     def _scan_and_save_body_part_result(self, capture_to_write, video, width, height):
+        create_detections_directory_if_not_exists()
         retry = True
+        frame_count = 0
         while retry:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (int(width), int(height)))
@@ -1322,6 +1331,11 @@ class ChooseVideoCamInputScreen(Screen):
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
                 cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
+
+            if detection != ():
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", frame)
+                frame_count += 1
+
             capture_to_write.write(frame)
             cv2.putText(frame, "PRESS SPACE TO STOP RECORDING", (10, 12),
                         cv2.FONT_HERSHEY_SIMPLEX,
@@ -1870,6 +1884,8 @@ class LoadingAndSavingScannedVideoScreen(Screen):
 
     @staticmethod
     def _scan_and_write_video_for_body_parts(capture_to_write, video, height, width):
+        create_detections_directory_if_not_exists()
+        frame_count = 0
         while True:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (int(width), int(height)))
@@ -1878,6 +1894,11 @@ class LoadingAndSavingScannedVideoScreen(Screen):
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
             for (x, y, z, w) in detection:
                 cv2.rectangle(frame, (x, y), (x + z, y + w), (20, 226, 20), thickness=7)
+
+            if detection != ():
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", frame)
+                frame_count += 1
+
             capture_to_write.write(frame)
 
     # combination of video and audio might not work if installed ffmpeg version is invalid
@@ -2131,6 +2152,7 @@ def set_file_paths():
     global path_to_app
     global path_to_app_assets
     global sample_path
+    global detections_path
     if getattr(sys, 'frozen', False):
         path_to_app = str(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(sys.executable)))))
         path_to_app_assets = str(os.path.dirname(sys.executable)) + "/assets"
@@ -2138,6 +2160,7 @@ def set_file_paths():
         path_to_app = str(os.path.dirname(__file__))
         path_to_app_assets = str(os.path.dirname(__file__)) + "/assets"
     sample_path = path_to_app + "/samples"
+    detections_path = path_to_app + "/detections"
 
 
 def set_config():
