@@ -23,7 +23,6 @@ import keras.utils as ima
 area_for_scan = ""
 selected_file_path = ""
 path_to_app = ""
-sample_path = path_to_app + "/samples"
 detections_path = path_to_app + "/detections"
 path_to_app_assets = "/assets"
 model_scale_factor = 1.2
@@ -45,11 +44,6 @@ def get_body_classifier():
     if area_for_scan == "text":
         return cv2.CascadeClassifier(path_to_app_assets + "/haarcascade_license_plate_number.xml")
     raise Exception("No body classifier found for " + area_for_scan)
-
-
-def create_samples_directory_if_not_exists():
-    if not os.path.exists(sample_path):
-        os.makedirs(sample_path)
 
 
 def create_detections_directory_if_not_exists():
@@ -429,7 +423,7 @@ class ChooseImageScreen(Screen):
         body_classifier = get_body_classifier()
         detection = body_classifier.detectMultiScale(gray_image, scaleFactor=model_scale_factor, minNeighbors=5)
 
-        create_samples_directory_if_not_exists()
+        create_detections_directory_if_not_exists()
         picker = 0
         if detection == ():
             self.manager.transition = SlideTransition(direction="down")
@@ -439,7 +433,7 @@ class ChooseImageScreen(Screen):
                 picker += 1
                 image_cropped = image[y: y + w, x: x + z]
                 image_result = cv2.resize(image_cropped, (520, 400))
-                cv2.imwrite(sample_path + "/sample" + str(picker) + ".png", image_result)
+                cv2.imwrite(detections_path + "/detection" + str(picker) + ".png", image_result)
             self.manager.transition = SlideTransition(direction="left")
             self.manager.current = "ProcessedScreen"
 
@@ -452,10 +446,7 @@ class ChooseImageScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageScreen"
             return
 
-        sample_path = path_to_app + "/samples"
-        if not os.path.exists(sample_path):
-            os.makedirs(sample_path)
-
+        create_detections_directory_if_not_exists()
         image_count = 0
         for (x, y, z, w) in detection:
             image_count += 1
@@ -473,7 +464,7 @@ class ChooseImageScreen(Screen):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1.4,
                         (0, 0, 255), 2)
-            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png",
+            cv2.imwrite(detections_path + "/detection" + str(image_count) + ".png",
                         image_cropped_final)
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -787,12 +778,12 @@ class ChooseImageCamInputScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageCamScreen"
             return
 
-        create_samples_directory_if_not_exists()
+        create_detections_directory_if_not_exists()
         for (x, y, z, w) in detection:
             image_count += 1
             image_cropped = frame[y: y + w, x: x + z]
             image_result = cv2.resize(image_cropped, (520, 400))
-            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png", image_result)
+            cv2.imwrite(detections_path + "/detection" + str(image_count) + ".png", image_result)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
         self.manager.current = "ProcessedScreen"
@@ -806,10 +797,7 @@ class ChooseImageCamInputScreen(Screen):
             self.manager.current = "NoDetectionsIdentifiedOnImageCamScreen"
             return
 
-        sample_path = path_to_app + "/samples"
-        if not os.path.exists(sample_path):
-            os.makedirs(sample_path)
-
+        create_detections_directory_if_not_exists()
         image_count = 0
         for (x, y, z, w) in detection:
             image_count += 1
@@ -827,7 +815,7 @@ class ChooseImageCamInputScreen(Screen):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1.4,
                         (0, 0, 255), 2)
-            cv2.imwrite(sample_path + "/sample" + str(image_count) + ".png",
+            cv2.imwrite(detections_path + "/detection" + str(image_count) + ".png",
                         frame_cropped_final)
         image.release()
         self.manager.transition = SlideTransition(direction="left")
@@ -1353,7 +1341,9 @@ class ChooseVideoCamInputScreen(Screen):
                     self.manager.current = "ProcessedScreen"
 
     def _scan_and_save_emotion_result(self, capture_to_write, video, width, height):
+        create_detections_directory_if_not_exists()
         retry = True
+        frame_count = 0
         while retry:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (int(width), int(height)))
@@ -1376,6 +1366,11 @@ class ChooseVideoCamInputScreen(Screen):
                 else:
                     cv2.putText(frame, result, (int(x + 5), int(y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                                 (0, 0, 255), 1)
+
+            if detection != ():
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", frame)
+                frame_count += 1
+
             capture_to_write.write(frame)
             cv2.putText(frame, "PRESS SPACE TO STOP RECORDING", (10, 12),
                         cv2.FONT_HERSHEY_SIMPLEX,
@@ -1402,7 +1397,7 @@ class ChooseVideoCamInputScreen(Screen):
             body_classifier = get_body_classifier()
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
 
-            create_samples_directory_if_not_exists()
+            create_detections_directory_if_not_exists()
             if detection == ():
                 capture_to_write.write(frame)
                 cv2.putText(frame, "PRESS SPACE ONCE OR TWICE TO STOP RECORDING", (10, 12),
@@ -1420,7 +1415,7 @@ class ChooseVideoCamInputScreen(Screen):
                     cut = frame[y:y + w, x:x + z]
                     cut_image = cv2.resize(cut, (520, 400))
                     capture_to_write.write(cut_image)
-                    cv2.imwrite(sample_path + "/sample" + str(frame_count) + ".png", cut_image)
+                    cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", cut_image)
                     cv2.putText(cut_image, "PRESS SPACE ONCE OR TWICE TO STOP RECORDING", (10, 12),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.35,
@@ -1438,7 +1433,9 @@ class ChooseVideoCamInputScreen(Screen):
                     self.manager.current = "ProcessedScreen"
 
     def _scan_and_save_emotion_cropped_result(self, capture_to_write, video):
+        create_detections_directory_if_not_exists()
         retry = True
+        frame_count = 0
         while retry:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (520, 400))
@@ -1474,11 +1471,13 @@ class ChooseVideoCamInputScreen(Screen):
                                 1.4,
                                 (0, 0, 255), 2)
                     capture_to_write.write(image_result)
+                    cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", image_result)
                     cv2.putText(image_result, "PRESS SPACE ONCE OR TWICE TO STOP RECORDING", (10, 12),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.35,
                                 (20, 226, 20), 1)
                     frame = image_result
+                    frame_count += 1
 
             cv2.imshow("RECORDING", frame)
             cv2.namedWindow("RECORDING")
@@ -1858,6 +1857,8 @@ class LoadingAndSavingScannedVideoScreen(Screen):
             self.manager.current = "ErrorVideoSelectionScreen"
 
     def _scan_and_write_video_for_emotion(self, capture_to_write, video, height, width):
+        create_detections_directory_if_not_exists()
+        frame_count = 0
         while True:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (int(width), int(height)))
@@ -1881,6 +1882,10 @@ class LoadingAndSavingScannedVideoScreen(Screen):
                 cv2.putText(frame, result, (int(x + 5), int(y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                             (0, 0, 255), 1)
             capture_to_write.write(frame)
+
+            if detection != ():
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", frame)
+                frame_count += 1
 
     @staticmethod
     def _scan_and_write_video_for_body_parts(capture_to_write, video, height, width):
@@ -1973,6 +1978,8 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
             self.manager.current = "ErrorVideoSelectionScreen"
 
     def _scan_and_write_result_for_emotion(self, capture_to_write, video):
+        create_detections_directory_if_not_exists()
+        frame_count = 0
         while True:
             _, frame_raw = video.read()
             frame = cv2.resize(frame_raw, (520, 400))
@@ -2001,6 +2008,8 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
                             1.4,
                             (0, 0, 255), 2)
                 capture_to_write.write(image_final)
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", frame)
+                frame_count += 1
 
     @staticmethod
     def _scan_and_write_result_for_body_parts(capture_to_write, video):
@@ -2012,12 +2021,12 @@ class LoadingAndSavingScannedVideoCroppedScreen(Screen):
             body_classifier = get_body_classifier()
             detection = body_classifier.detectMultiScale(gray_frame, scaleFactor=model_scale_factor, minNeighbors=5)
 
-            create_samples_directory_if_not_exists()
+            create_detections_directory_if_not_exists()
             for (x, y, z, w) in detection:
                 final_frame = frame[y:y + w, x:x + z]
                 final_cut_frame = cv2.resize(final_frame, (520, 400))
                 capture_to_write.write(final_cut_frame)
-                cv2.imwrite(sample_path + "/sample" + str(frame_count) + ".png", final_cut_frame)
+                cv2.imwrite(detections_path + "/detection" + str(frame_count) + ".png", final_cut_frame)
                 frame_count += 1
 
 
@@ -2054,7 +2063,7 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
                 video.release()
 
                 video = cv2.VideoCapture(selected_file_path)
-                capture = cv2.VideoWriter(path_to_app_assets + "/detected.avi", cv2.VideoWriter_fourcc(*"XVID"), 30,
+                capture = cv2.VideoWriter(path_to_app_assets + "/detection.avi", cv2.VideoWriter_fourcc(*"XVID"), 30,
                                           (520, 400))
                 try:
                     if area_for_scan != "emotion":
@@ -2083,7 +2092,7 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
             detected = ""
             try:
                 retry = True
-                detected = cv2.VideoCapture(path_to_app_assets + "/detected.avi")
+                detected = cv2.VideoCapture(path_to_app_assets + "/detection.avi")
                 while retry:
                     _, frame = detected.read()
                     cv2.imshow("PREVIEW", frame)
@@ -2151,7 +2160,6 @@ class LoadingAndShowingResultVideoCroppedScreen(Screen):
 def set_file_paths():
     global path_to_app
     global path_to_app_assets
-    global sample_path
     global detections_path
     if getattr(sys, 'frozen', False):
         path_to_app = str(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(sys.executable)))))
@@ -2159,7 +2167,6 @@ def set_file_paths():
     elif __file__:
         path_to_app = str(os.path.dirname(__file__))
         path_to_app_assets = str(os.path.dirname(__file__)) + "/assets"
-    sample_path = path_to_app + "/samples"
     detections_path = path_to_app + "/detections"
 
 
